@@ -2,6 +2,7 @@ import domain.*;
 import infrastructure.CertificateImpl;
 import infrastructure.CipherMessage;
 import infrastructure.CryptoFactoryImpl;
+import infrastructure.HashMapCertificateRepository;
 import org.junit.jupiter.api.Test;
 
 import java.security.KeyPair;
@@ -18,7 +19,7 @@ public class ApplicationTest {
     private final User charlie;
 
     public ApplicationTest() {
-        cryptoFactory = new CryptoFactoryImpl();
+        cryptoFactory = new CryptoFactoryImpl(new HashMapCertificateRepository(), null);
         alice = cryptoFactory.createUser("Alice");
         bob = cryptoFactory.createUser("Bob");
         charlie = cryptoFactory.createUser("Charlie");
@@ -56,9 +57,10 @@ public class ApplicationTest {
                 "Tampered".getBytes(),
                 original.getSign(),
                 original.getSignAlg(),
-                "AES",
-                "RSA/ECB/OAEPWithSHA-256AndMGF1Padding",
-                "AES/CBC/PKCS5Padding"
+                cryptoFactory.getSignProperties(),
+                cryptoFactory.getKeyGenAlg(),
+                cryptoFactory.getAsymmetricAlg(),
+                cryptoFactory.getSymmetricAlg()
         );
         assertThrows(Exception.class,
                 () -> bob.receiveMessage(tampered));
@@ -76,17 +78,18 @@ public class ApplicationTest {
                 "fake-serial",
                 "FakeCC"
         );
-        fakeCert.setSignature("FAKE_SIG".getBytes());
+        fakeCert.setSignature("FAKE_SIG".getBytes(), "fake");
 
         SecuredMessage fakeMsg = new CipherMessage(
                 fakeCert,
                 bob.getCertificate().getPublicKey(),
                 "Hello".getBytes(),
                 "FAKE_SIG".getBytes(),
-                "RSASSA-PSS",
-                "AES",
-                "RSA/ECB/OAEPWithSHA-256AndMGF1Padding",
-                "AES/CBC/PKCS5Padding"
+                cryptoFactory.getSignAlg(),
+                cryptoFactory.getSignProperties(),
+                cryptoFactory.getKeyGenAlg(),
+                cryptoFactory.getAsymmetricAlg(),
+                cryptoFactory.getSymmetricAlg()
         );
         assertThrows(Exception.class,
                 () -> bob.receiveMessage(fakeMsg));
@@ -119,16 +122,17 @@ public class ApplicationTest {
                 "exp-serial",
                 "SimpleCA"
         );
-        expired.setSignature("SIG".getBytes());
+        expired.setSignature("SIG".getBytes(), "alg");
         SecuredMessage msg = new CipherMessage(
                 expired,
                 bob.getCertificate().getPublicKey(),
                 "Test".getBytes(),
                 "SIG".getBytes(),
-                "RSASSA-PSS",
-                "AES",
-                "RSA/ECB/OAEPWithSHA-256AndMGF1Padding",
-                "AES/CBC/PKCS5Padding"
+                cryptoFactory.getSignAlg(),
+                cryptoFactory.getSignProperties(),
+                cryptoFactory.getKeyGenAlg(),
+                cryptoFactory.getAsymmetricAlg(),
+                cryptoFactory.getSymmetricAlg()
         );
         assertThrows(Exception.class,
                 () -> bob.receiveMessage(msg));

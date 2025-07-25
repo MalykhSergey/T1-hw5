@@ -9,6 +9,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.*;
+import java.security.spec.AlgorithmParameterSpec;
 
 public class CipherMessage implements SecuredMessage {
 
@@ -16,14 +17,15 @@ public class CipherMessage implements SecuredMessage {
     private final byte[] encryptedSessionKey;
     private final byte[] sign;
     private final Certificate certificate;
-
     private final String signAlg;
+    private final AlgorithmParameterSpec signProperties;
     private final String keyGenAlg;
     private final String asymmetricAlg;
     private final String symmetricAlg;
 
-    public CipherMessage(Certificate senderCertificate, PublicKey receiverKey, byte[] data, byte[] sign, String signAlg, String keyGenAlg, String asymmetricAlg, String symmetricAlg) {
+    public CipherMessage(Certificate senderCertificate, PublicKey receiverKey, byte[] data, byte[] sign, String signAlg, AlgorithmParameterSpec signProperties, String keyGenAlg, String asymmetricAlg, String symmetricAlg) {
         this.signAlg = signAlg;
+        this.signProperties = signProperties;
         this.keyGenAlg = keyGenAlg;
         this.asymmetricAlg = asymmetricAlg;
         this.symmetricAlg = symmetricAlg;
@@ -36,6 +38,18 @@ public class CipherMessage implements SecuredMessage {
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage());
         }
+    }
+
+    public CipherMessage(Certificate senderCertificate, byte[] encryptedSessionKey, byte[] data, byte[] sign, String signAlg, AlgorithmParameterSpec signProperties, String keyGenAlg, String asymmetricAlg, String symmetricAlg) {
+        this.encryptedData = data;
+        this.encryptedSessionKey = encryptedSessionKey;
+        this.sign = sign;
+        this.signAlg = signAlg;
+        this.signProperties = signProperties;
+        this.keyGenAlg = keyGenAlg;
+        this.asymmetricAlg = asymmetricAlg;
+        this.symmetricAlg = symmetricAlg;
+        this.certificate = senderCertificate;
     }
 
     private byte[] encryptSessionKey(SecretKey sessionKey, PublicKey receiverKey) throws NoSuchPaddingException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
@@ -93,8 +107,32 @@ public class CipherMessage implements SecuredMessage {
     public String getSignAlg() {
         return signAlg;
     }
-@Override
+    @Override
     public Certificate getCertificate() {
         return certificate;
+    }
+
+    public byte[] getEncryptedData() {
+        return encryptedData;
+    }
+
+    public byte[] getEncryptedSessionKey() {
+        return encryptedSessionKey;
+    }
+
+    public AlgorithmParameterSpec getSignProperties() {
+        return signProperties;
+    }
+
+    public String getKeyGenAlg() {
+        return keyGenAlg;
+    }
+
+    public String getAsymmetricAlg() {
+        return asymmetricAlg;
+    }
+
+    public String getSymmetricAlg() {
+        return symmetricAlg;
     }
 }

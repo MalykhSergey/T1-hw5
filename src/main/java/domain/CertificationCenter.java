@@ -11,5 +11,7 @@ public interface CertificationCenter {
 
     SignedMessage<VerifyResponse> secureVerifyCertificate(Certificate certificate);
 
+    boolean unsecureVerifyCertificate(Certificate certificate);
+
     void revokeCertificate(SignedMessage<String> signedSubjectName);
 }

@@ -5,6 +5,7 @@ import domain.*;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PublicKey;
+import java.security.spec.AlgorithmParameterSpec;
 import java.time.Instant;
 
 public class CryptoUser implements User {
@@ -14,6 +15,7 @@ public class CryptoUser implements User {
     private final Certificate certificate;
 
     public final String SIGN_ALG;
+    private final AlgorithmParameterSpec SIGN_PROPERTIES;
     public final String KEY_GEN_ALG;
     public final String ASYMMETRIC_ALG;
     public final String SYMMETRIC_ALG;
@@ -25,12 +27,13 @@ public class CryptoUser implements User {
             CertificationCenter certificationCenter,
             KeyPairGenerator keyGen,
             SignatureManager signatureManager,
-            String signAlg,
+            String signAlg, AlgorithmParameterSpec signProperties,
             String keyGenAlg,
             String asymmetricAlg,
             String symmetricAlg
     ) {
         SIGN_ALG = signAlg;
+        SIGN_PROPERTIES = signProperties;
         KEY_GEN_ALG = keyGenAlg;
         ASYMMETRIC_ALG = asymmetricAlg;
         SYMMETRIC_ALG = symmetricAlg;
@@ -50,21 +53,21 @@ public class CryptoUser implements User {
 
     @Override
     public SecuredMessage sendSecuredMessage(PublicKey receiverKey, byte[] data) {
-        return new CipherMessage(certificate, receiverKey, data, signatureManager.sign(data), SIGN_ALG, KEY_GEN_ALG, ASYMMETRIC_ALG, SYMMETRIC_ALG);
+        return new CipherMessage(certificate, receiverKey, data, signatureManager.sign(data), SIGN_ALG, SIGN_PROPERTIES, KEY_GEN_ALG, ASYMMETRIC_ALG, SYMMETRIC_ALG);
     }
 
     @Override
     public void receiveMessage(SecuredMessage securedMessage) {
-        // Имитируем запрос проверки подлинности сертификата по незащищённому каналу
+        // Запрос проверки подлинности сертификата по незащищённому каналу
         // Центр сертификации отвечает в формате подписанных сообщений (информация несекретная)
         // Изменить ответ сервера невозможно, иначе подпись станет не валидна
         Instant start = Instant.now();
         SignedMessage<VerifyResponse> signedMessage = certificationCenter.secureVerifyCertificate(securedMessage.getCertificate());
-        if (!signatureManager.verify(signedMessage.getBytes(), signedMessage.getSign(), generalCertificate.getPublicKey())) {
+        if (!signatureManager.verify(signedMessage.getBytes(), signedMessage.getSign(), generalCertificate.getPublicKey(), signedMessage)) {
             throw new SecurityException("Invalid Sign in VerifyResponse");
         }
         VerifyResponse verifyResponse = signedMessage.getMessage();
-        if (!verifyResponse.getCertificate().equals(certificate)) {
+        if (!verifyResponse.getCertificate().equals(securedMessage.getCertificate())) {
             throw new SecurityException("Different certificate in VerifyResponse");
         }
         if (!verifyResponse.isValid()) {
@@ -89,7 +92,7 @@ public class CryptoUser implements User {
 
     @Override
     public <T> SignedMessage<T> sendSignedMessage(T message) {
-        SignedMessage<T> signedMessage = new SignedMessageImpl<>(message);
+        SignedMessage<T> signedMessage = new SignedMessageImpl<>(message, signatureManager.getSignAlg(), signatureManager.getParameters());
         signedMessage.setSign(signatureManager.sign(signedMessage.getBytes()));
         return signedMessage;
     }

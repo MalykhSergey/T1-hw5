@@ -2,17 +2,23 @@ package infrastructure;
 
 import domain.SignedMessage;
 
+import java.security.spec.AlgorithmParameterSpec;
+
 public class SignedMessageImpl<T> implements SignedMessage<T> {
     private final T message;
     private byte[] sign;
+    private final String signAlg;
+    private final AlgorithmParameterSpec signProperties;
 
-    public SignedMessageImpl(T message) {
+    public SignedMessageImpl(T message, String signAlg, AlgorithmParameterSpec signProperties) {
         this.message = message;
+        this.signAlg = signAlg;
+        this.signProperties = signProperties;
     }
 
     @Override
     public byte[] getBytes() {
-        return this.toString().getBytes();
+        return message.toString().getBytes();
     }
 
     @Override
@@ -26,13 +32,17 @@ public class SignedMessageImpl<T> implements SignedMessage<T> {
     }
 
     @Override
-    public void setSign(byte[] sign) {
-        this.sign = sign;
+    public String getSignAlg() {
+        return signAlg;
     }
 
     @Override
-    public String toString() {
-        return "SignedResponseImpl{" +
-                "response=" + message + '}';
+    public AlgorithmParameterSpec getSignProperties() {
+        return signProperties;
+    }
+
+    @Override
+    public void setSign(byte[] sign) {
+        this.sign = sign;
     }
 }

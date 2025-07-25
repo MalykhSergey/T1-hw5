@@ -70,8 +70,9 @@ mvn test
  В реализованной системе создание засекреченного сообщения происходит в конструкторе CipherMessage.
  ```java
 public class CipherMessage implements SecuredMessage {
-    public CipherMessage(Certificate senderCertificate, PublicKey receiverKey, byte[] data, byte[] sign, String signAlg, String keyGenAlg, String asymmetricAlg, String symmetricAlg) {
+    public CipherMessage(Certificate senderCertificate, PublicKey receiverKey, byte[] data, byte[] sign, String signAlg, AlgorithmParameterSpec signProperties, String keyGenAlg, String asymmetricAlg, String symmetricAlg) {
         this.signAlg = signAlg;
+        this.signProperties = signProperties;
         this.keyGenAlg = keyGenAlg;
         this.asymmetricAlg = asymmetricAlg;
         this.symmetricAlg = symmetricAlg;
@@ -90,17 +91,17 @@ public class CipherMessage implements SecuredMessage {
  ```
 
 Стоит заметить, что в целях безопасности **Пользователь самостоятельно подписывает передаваемые данные**, никому не передавая свои секретные ключи.
-CipherMessage же шифрует сообщение для получателя его публичным ключом. **После создания CipherMessage исходные данные сможет прочитать только получатель!**.
+CipherMessage же шифрует сообщение для получателя его публичным ключом. **После создания CipherMessage исходные данные сможет прочитать только получатель!**
 CipherMessage инкапсулирует в себе логику по шифровке/дешифровке сообщения, предоставляя пользователям простой и понятный интерфейс.
 
 
 ```java
 public class CryptoUser implements User {
 //    ...
-@Override
-public SecuredMessage sendSecuredMessage(PublicKey receiverKey, byte[] data) {
-        return new CipherMessage(certificate, receiverKey, data, signatureManager.sign(data), SIGN_ALG, KEY_GEN_ALG, ASYMMETRIC_ALG, SYMMETRIC_ALG);
-}
+    @Override
+    public SecuredMessage sendSecuredMessage(PublicKey receiverKey, byte[] data) {
+        return new CipherMessage(certificate, receiverKey, data, signatureManager.sign(data), SIGN_ALG, SIGN_PROPERTIES, KEY_GEN_ALG, ASYMMETRIC_ALG, SYMMETRIC_ALG);
+    }
 }
 ```
 
@@ -114,16 +115,16 @@ public class CryptoUser implements User {
     //    ...
     @Override
     public void receiveMessage(SecuredMessage securedMessage) {
-        // Имитируем запрос проверки подлинности сертификата по незащищённому каналу
+        // Запрос проверки подлинности сертификата по незащищённому каналу
         // Центр сертификации отвечает в формате подписанных сообщений (информация несекретная)
         // Изменить ответ сервера невозможно, иначе подпись станет не валидна
         Instant start = Instant.now();
         SignedMessage<VerifyResponse> signedMessage = certificationCenter.secureVerifyCertificate(securedMessage.getCertificate());
-        if (!signatureManager.verify(signedMessage.getBytes(), signedMessage.getSign(), generalCertificate.getPublicKey())) {
+        if (!signatureManager.verify(signedMessage.getBytes(), signedMessage.getSign(), generalCertificate.getPublicKey(), signedMessage)) {
             throw new SecurityException("Invalid Sign in VerifyResponse");
         }
         VerifyResponse verifyResponse = signedMessage.getMessage();
-        if (!verifyResponse.getCertificate().equals(certificate)) {
+        if (!verifyResponse.getCertificate().equals(securedMessage.getCertificate())) {
             throw new SecurityException("Different certificate in VerifyResponse");
         }
         if (!verifyResponse.isValid()) {
@@ -150,18 +151,18 @@ public class CryptoUser implements User {
 
 В работе использованы следующие алгоритмы доступные в JDK 21:
 
-```java
-public class CryptoFactoryImpl implements CryptoFactory {
-
-    public static final String SIGN_ALG = "RSASSA-PSS";
-    public static final String ASYMMETRIC_ALG = "RSA/ECB/OAEPWithSHA-256AndMGF1Padding";
-    public static final String SYMMETRIC_ALG = "AES/CBC/PKCS5Padding";
-    // ...
-}
+```yaml
+- SIGN_ALG:RSASSA-PSS
+- KEY_GEN-ALG:AES
+- KEY_PAIR_GEN_ALG:RSA
+- KEY_SIZE:2048
+- ASYMMETRIC_ALG:RSA/ECB/OAEPWithSHA-256AndMGF1Padding
+- SYMMETRIC_ALG:AES/CBC/PKCS5Padding
 ```
 
 Демонстрация работы системы, а также неудачных попыток шпиона помешать приватной переписке Алисы и Боба приведена в юнит-тестах.
 
 ### Примечание
-Класс CryptoUser может достаточно просто адаптирован в CryptoTransmitter и использоваться для безопасного общения по сети.
-Однако в рамках задачи, это будет уже избыточно.
+Класс CryptoUser может быть достаточно просто адаптирован в CryptoTransmitter и использоваться для безопасного общения по сети.
+В качестве CertificationCenter такому CryptoTransmitter нужно будет передать объект, который будет
+передавать запросы по сети реальному центру сертификации.
